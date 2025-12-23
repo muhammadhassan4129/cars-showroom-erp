@@ -19,7 +19,7 @@ return new class extends Migration
             $table->decimal('amount', 12, 2);
             $table->date('due_date');
             $table->decimal('paid_amount', 12, 2)->default(0);
-            $table->enum('status', ['pending', 'paid', 'overdue'])->default('pending');
+            $table->string('status')->default('pending');
             $table->date('paid_date')->nullable();
             $table->timestamps();
         });

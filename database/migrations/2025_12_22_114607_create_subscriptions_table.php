@@ -17,7 +17,7 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date');
             $table->decimal('amount', 10, 2);
-            $table->enum('status', ['active', 'expired', 'cancelled'])->default('active');
+            $table->string('status')->default('active');
             $table->timestamps();
         });
     }

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('phone');
             $table->string('cnic')->nullable();
             $table->text('address')->nullable();
-            $table->string('type')->default('both');
+            $table->string('type');
             $table->timestamps();
         });
     }

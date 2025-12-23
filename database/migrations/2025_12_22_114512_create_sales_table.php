@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('bargain_price', 12, 2);
             $table->decimal('commission_amount', 12, 2);
             $table->decimal('net_amount', 12, 2);
-            $table->enum('payment_type', ['cash', 'installment']);
+            $table->string('payment_type');
             $table->integer('installment_months')->nullable();
             $table->date('sale_date');
             $table->text('notes')->nullable();
