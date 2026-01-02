@@ -11,6 +11,8 @@ import Reports from './Pages/Reports';
 import Bargains from './Pages/Bargains';
 import Commission from './Pages/Commission';
 import Subscriptions from './Pages/Subscriptions';
+import Profile from './Pages/Profile';
+import Settings from './Pages/Settings';
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
@@ -43,6 +45,8 @@ function App() {
       <Route path="/bargains" element={<ProtectedRoute><Bargains /></ProtectedRoute>} />
       <Route path="/commission" element={<ProtectedRoute><Commission /></ProtectedRoute>} />
       <Route path="/subscriptions" element={<ProtectedRoute><Subscriptions /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
       <Route path="/" element={<Navigate to="/dashboard" />} />
       <Route path="*" element={<div className="p-8 text-center">Page Not Found</div>} />

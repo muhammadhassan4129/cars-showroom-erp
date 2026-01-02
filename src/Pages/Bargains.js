@@ -17,6 +17,8 @@ import {
   Grid,
   Card,
   CardContent,
+  Alert,
+  Divider,
 } from '@mui/material';
 import {
   Add,
@@ -36,8 +38,11 @@ import {
   Sell,
   AttachMoney,
   Visibility,
+  Lock,
+  PersonAdd,
 } from '@mui/icons-material';
 import { dummyBargains } from '../Utils/dummyData';
+import axios from 'axios';
 
 const Bargains = () => {
   const [bargains, setBargains] = useState(dummyBargains);
@@ -49,16 +54,17 @@ const Bargains = () => {
   const [selectedBargain, setSelectedBargain] = useState(null);
   const [currentBargain, setCurrentBargain] = useState({
     name: '',
-    manager_name: '',
-    email: '',
+    bargain_email: '',
     phone: '',
     address: '',
-    city: '',
-    subscription_plan: 'monthly',
-    subscription_fee: 5000,
-    subscription_start: new Date().toISOString().split('T')[0],
-    subscription_end: '',
-    status: 'active',
+    purchase_commission_rate: '',
+    purchase_commission_type: 'percentage',
+    sale_commission_rate: '',
+    sale_commission_type: 'percentage',
+    user_name: '',
+    user_email: '',
+    password: '',
+
   });
 
   // Calculate subscription end date
@@ -75,29 +81,31 @@ const Bargains = () => {
   };
 
   // Open Add Dialog
-  const handleAddClick = () => {
-    setEditMode(false);
-    const startDate = new Date().toISOString().split('T')[0];
-    setCurrentBargain({
-      name: '',
-      manager_name: '',
-      email: '',
-      phone: '',
-      address: '',
-      city: '',
-      subscription_plan: 'monthly',
-      subscription_fee: 5000,
-      subscription_start: startDate,
-      subscription_end: calculateEndDate(startDate, 'monthly'),
-      status: 'active',
-    });
-    setOpenDialog(true);
-  };
+const handleAddClick = () => {
+  setEditMode(false);
+  setCurrentBargain({
+    name: '',
+    bargain_email: '',
+    phone: '',
+    address: '',
+    purchase_commission_rate: 4,
+    purchase_commission_type: 'percentage',
+    sale_commission_rate: 3,
+    sale_commission_type: 'percentage',
+    user_name: '',
+    user_email: '',
+    password: '',
+  });
+  setOpenDialog(true);
+};
 
   // Open Edit Dialog
   const handleEditClick = (bargain) => {
     setEditMode(true);
-    setCurrentBargain(bargain);
+    setCurrentBargain({
+      ...bargain,
+      user_password: '', // Don't show password in edit mode
+    });
     setOpenDialog(true);
   };
 
@@ -130,25 +138,38 @@ const Bargains = () => {
   };
 
   // Handle Form Submit
-  const handleSubmit = () => {
-    if (editMode) {
-      setBargains(bargains.map(b => 
-        b.id === currentBargain.id ? currentBargain : b
-      ));
-    } else {
-      const newBargain = {
-        ...currentBargain,
-        id: bargains.length + 1,
-        total_vehicles: 0,
-        total_purchases: 0,
-        total_sales: 0,
-        commission_earned: 0,
-        created_at: new Date().toISOString().split('T')[0],
-      };
-      setBargains([...bargains, newBargain]);
-    }
+const handleSubmit = async () => {
+  try {
+    const payload = {
+      name: currentBargain.name,
+      bargain_email: currentBargain.bargain_email,
+      phone: currentBargain.phone,
+      address: currentBargain.address,
+      purchase_commission_rate: Number(currentBargain.purchase_commission_rate),
+      purchase_commission_type: currentBargain.purchase_commission_type,
+      sale_commission_rate: Number(currentBargain.sale_commission_rate),
+      sale_commission_type: currentBargain.sale_commission_type,
+      user_name: currentBargain.user_name,
+      user_email: currentBargain.user_email,
+      password: currentBargain.password,
+    };
+
+    const res = await axios.post(
+      'https://b639d00419a4.ngrok-free.app/api/bargains',
+      payload,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    setBargains(prev => [...prev, res.data.data]);
+    alert('Bargain created successfully!');
     setOpenDialog(false);
-  };
+
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    alert(err.response?.data?.message || 'Failed to create bargain');
+  }
+};
+
 
   // Delete Bargain
   const handleDelete = (id) => {
@@ -447,6 +468,15 @@ const Bargains = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} className="mt-2">
+            {/* Bargain Information Section */}
+            <Grid item xs={12}>
+              <div className="flex items-center gap-2 mb-2">
+                <Business className="text-blue-600" />
+                <h3 className="font-semibold text-gray-800">Bargain Information</h3>
+              </div>
+              <Divider />
+            </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 label="Bargain Name"
@@ -458,33 +488,24 @@ const Bargains = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Manager Name"
-                value={currentBargain.manager_name}
-                onChange={(e) => setCurrentBargain({...currentBargain, manager_name: e.target.value})}
+                label="Bargain Email"
+                value={currentBargain.bargain_email}
+                onChange={(e) => setCurrentBargain({...currentBargain, bargain_email: e.target.value})}
                 required
                 fullWidth
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Email"
-                type="email"
-                value={currentBargain.email}
-                onChange={(e) => setCurrentBargain({...currentBargain, email: e.target.value})}
-                required
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Phone Number"
+                label="Phone"
+                type="phone"
                 value={currentBargain.phone}
                 onChange={(e) => setCurrentBargain({...currentBargain, phone: e.target.value})}
                 required
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} md={8}>
+            <Grid item xs={12} md={6}>
               <TextField
                 label="Address"
                 value={currentBargain.address}
@@ -493,64 +514,145 @@ const Bargains = () => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="City"
-                value={currentBargain.city}
-                onChange={(e) => setCurrentBargain({...currentBargain, city: e.target.value})}
-                required
-                fullWidth
-              />
+    
+
+          {/* Subscription Section */}
+            <Grid item xs={12} className="mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AttachMoney className="text-purple-600" />
+                <h3 className="font-semibold text-gray-800">Commission Details</h3>
+              </div>
+              <Divider />
             </Grid>
-            <Grid item xs={12} md={4}>
+
+            <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Subscription Plan</InputLabel>
+                <InputLabel>Purchase Type</InputLabel>
                 <Select
-                  value={currentBargain.subscription_plan}
-                  label="Subscription Plan"
-                  onChange={(e) => handlePlanChange(e.target.value)}
+                  value={currentBargain.purchase_commission_type}
+                  label="Purchase Type"
+                  onChange={(e) => setCurrentBargain({...currentBargain, purchase_commission_type: e.target.value})}
                 >
-                  <MenuItem value="monthly">Monthly - PKR 5,000</MenuItem>
-                  <MenuItem value="quarterly">Quarterly - PKR 13,500</MenuItem>
-                  <MenuItem value="yearly">Yearly - PKR 50,000</MenuItem>
+                  <MenuItem value="fixed">Fixed</MenuItem>
+                  <MenuItem value="percentage">Percentage</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <TextField
-                label="Start Date"
-                type="date"
-                value={currentBargain.subscription_start}
-                onChange={(e) => handleStartDateChange(e.target.value)}
+                label="Purchase Commission Rate"
+                type="number"
+                value={currentBargain.purchase_commission_rate}
+                onChange={(e) => setCurrentBargain({...currentBargain, purchase_commission_rate: e.target.value})}
                 required
                 fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
+              />  
+               
             </Grid>
-            <Grid item xs={12} md={4}>
+
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Sale Type</InputLabel>
+                <Select
+                  value={currentBargain.sale_commission_type}
+                  label="Sale Type"
+                  onChange={(e) => setCurrentBargain({...currentBargain, sale_commission_type: e.target.value})}
+                >
+                  <MenuItem value="fixed">Fixed</MenuItem>
+                  <MenuItem value="percentage">Percentage</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
               <TextField
-                label="End Date"
-                type="date"
-                value={currentBargain.subscription_end}
-                disabled
+                label="Sale Commission Rate"
+                type="number"
+                value={currentBargain.sale_commission_rate}
+                onChange={(e) => setCurrentBargain({...currentBargain, sale_commission_rate: e.target.value})}
+                required
                 fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
+              />  
+               
             </Grid>
+           
+            {/* User Account Section */}
+            <Grid item xs={12} className="mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <PersonAdd className="text-green-600" />
+                <h3 className="font-semibold text-gray-800">Manager Login Account</h3>
+              </div>
+              <Divider />
+              <Alert severity="info" className="mt-2">
+                {editMode 
+                  ? "Leave password empty to keep the current password unchanged."
+                  : "This account will be created for the manager to access the system. Manager will receive login credentials via email."
+                }
+              </Alert>
+            </Grid>
+
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={currentBargain.status}
-                  label="Status"
-                  onChange={(e) => setCurrentBargain({...currentBargain, status: e.target.value})}
-                >
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="suspended">Suspended</MenuItem>
-                  <MenuItem value="expired">Expired</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                label="Login Username (Full Name)"
+                value={currentBargain.user_name}
+                onChange={(e) => setCurrentBargain({...currentBargain, user_name: e.target.value})}
+                required={!editMode}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person />
+                    </InputAdornment>
+                  ),
+                }}
+                helperText="This name will be used for login identification"
+              />
             </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Login Email"
+                type="email"
+                value={currentBargain.user_email}
+                onChange={(e) => setCurrentBargain({...currentBargain, user_email: e.target.value})}
+                required={!editMode}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email />
+                    </InputAdornment>
+                  ),
+                }}
+                helperText="Manager will use this email to login"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                label={editMode ? "New Password (Optional)" : "Set Password"}
+                type="password"
+               value={currentBargain.password}
+               onChange={(e) => setCurrentBargain({...currentBargain, password: e.target.value})}
+               required={!editMode}
+               fullWidth
+               InputProps={{
+                 startAdornment: (
+                   <InputAdornment position="start">
+                      <Lock />
+                    </InputAdornment>
+                  ),
+                }}
+                helperText={editMode ? "Leave empty to keep current password" : "Minimum 8 characters"}
+              />
+            </Grid>
+
+            {!editMode && (
+              <Grid item xs={12}>
+                <Alert severity="success" icon={<PersonAdd />}>
+                  After creating the bargain, a welcome email with login credentials will be automatically sent to <strong>{currentBargain.user_email || 'manager email'}</strong>
+                </Alert>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -560,7 +662,7 @@ const Bargains = () => {
             variant="contained" 
             style={{ backgroundColor: '#2563eb' }}
           >
-            {editMode ? 'Update' : 'Add'} Bargain
+            {editMode ? 'Update' : 'Create'} Bargain
           </Button>
         </DialogActions>
       </Dialog>

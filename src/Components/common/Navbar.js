@@ -1,14 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../Context/AuthContext';
-import { IconButton, Menu, MenuItem, Avatar } from '@mui/material';
+import { IconButton, Menu, MenuItem, Avatar, Divider, ListItemIcon } from '@mui/material';
 import { 
-    Settings,
   Notifications, 
   AccountCircle,
-  Logout as LogoutIcon 
+  Logout as LogoutIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
@@ -18,6 +20,16 @@ const Navbar = () => {
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleProfile = () => {
+    handleClose();
+    navigate('/profile');
+  };
+
+  const handleSettings = () => {
+    handleClose();
+    navigate('/settings');
   };
 
   const handleLogout = () => {
@@ -64,15 +76,48 @@ const Navbar = () => {
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
               onClose={handleClose}
+              PaperProps={{
+                elevation: 3,
+                sx: {
+                  minWidth: 200,
+                  mt: 1.5,
+                  '& .MuiMenuItem-root': {
+                    px: 2,
+                    py: 1.5,
+                  },
+                },
+              }}
             >
-              <MenuItem onClick={handleClose}>
-                <AccountCircle className="mr-2" /> Profile
+              {/* User Info Header */}
+              <div className="px-4 py-3 border-b">
+                <p className="font-semibold text-gray-800">{user?.name}</p>
+                <p className="text-sm text-gray-500">{user?.email}</p>
+              </div>
+
+              {/* Profile */}
+              <MenuItem onClick={handleProfile}>
+                <ListItemIcon>
+                  <AccountCircle fontSize="small" />
+                </ListItemIcon>
+                My Profile
               </MenuItem>
-              <MenuItem onClick={handleClose}>
-                <Settings className="mr-2" /> Settings
+
+              {/* Settings */}
+              <MenuItem onClick={handleSettings}>
+                <ListItemIcon>
+                  <SettingsIcon fontSize="small" />
+                </ListItemIcon>
+                Settings
               </MenuItem>
+
+              <Divider />
+
+              {/* Logout */}
               <MenuItem onClick={handleLogout} className="text-red-600">
-                <LogoutIcon className="mr-2" /> Logout
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" className="text-red-600" />
+                </ListItemIcon>
+                Logout
               </MenuItem>
             </Menu>
           </div>

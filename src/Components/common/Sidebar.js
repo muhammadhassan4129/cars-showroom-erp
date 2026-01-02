@@ -84,7 +84,7 @@ const Sidebar = () => {
       title: 'Reports',
       icon: <Assessment />,
       path: '/reports',
-      roles: ['super_admin', 'manager']
+      roles: ['super_admin']
     },
   ];
 
