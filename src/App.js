@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './Context/AuthContext';
+import { CircularProgress } from '@mui/material';
+
+// Pages
 import Login from './Pages/auth/Login';
 import Dashboard from './Pages/Dashboard';
 import Customers from './Pages/Customers';
@@ -14,8 +17,17 @@ import Subscriptions from './Pages/Subscriptions';
 import Profile from './Pages/Profile';
 import Settings from './Pages/Settings';
 
+// Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <CircularProgress />
+      </div>
+    );
+  }
   
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -25,10 +37,19 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <CircularProgress />
+      </div>
+    );
+  }
 
   return (
     <Routes>
+      {/* Public Routes */}
       <Route 
         path="/login" 
         element={user ? <Navigate to="/dashboard" /> : <Login />} 

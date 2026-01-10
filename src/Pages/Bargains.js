@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../Components/layout/DashboardLayout';
 import {
   Button,
@@ -19,6 +19,8 @@ import {
   CardContent,
   Alert,
   Divider,
+  CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   Add,
@@ -40,31 +42,38 @@ import {
   Visibility,
   Lock,
   PersonAdd,
+  Subscriptions,
 } from '@mui/icons-material';
-import { dummyBargains } from '../Utils/dummyData';
-import axios from 'axios';
+import { bargainAPI } from '../Services/api';
 
 const Bargains = () => {
-  const [bargains, setBargains] = useState(dummyBargains);
+  const [bargains, setBargains] = useState([]); 
+  const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedBargain, setSelectedBargain] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
   const [currentBargain, setCurrentBargain] = useState({
     name: '',
     bargain_email: '',
     phone: '',
     address: '',
-    purchase_commission_rate: '',
+    purchase_commission_rate: 4,
     purchase_commission_type: 'percentage',
-    sale_commission_rate: '',
+    sale_commission_rate: 3,
     sale_commission_type: 'percentage',
+    subscription_plan: 'monthly',
+    subscription_fee: 5000,
+    subscription_start: new Date().toISOString().split('T')[0],
+    subscription_end: '',
+    status: 'active',
     user_name: '',
     user_email: '',
     password: '',
-
   });
 
   // Calculate subscription end date
@@ -80,31 +89,97 @@ const Bargains = () => {
     return start.toISOString().split('T')[0];
   };
 
+  // Fetch all bargains on component mount
+  useEffect(() => {
+    fetchBargains();
+  }, []);
+
+  // Fetch bargains from API
+  const fetchBargains = async () => {
+    try {
+      setLoading(true);
+      const response = await bargainAPI.getAll();
+      
+      console.log("Full Axios Response:", response);
+
+      let finalData = [];
+
+      // Laravel Pagination: response.data.data.data
+      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+        finalData = response.data.data.data;
+      } 
+      // Laravel Resource: response.data.data
+      else if (response.data?.data && Array.isArray(response.data.data)) {
+        finalData = response.data.data;
+      }
+      // Direct Array: response.data
+      else if (Array.isArray(response.data)) {
+        finalData = response.data;
+      }
+
+      console.log("Extracted Array for State:", finalData);
+      setBargains(finalData);
+
+    } catch (error) {
+      console.error('Error fetching bargains:', error);
+      setBargains([]); 
+      showSnackbar('Failed to load bargains', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show snackbar notification
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
   // Open Add Dialog
-const handleAddClick = () => {
-  setEditMode(false);
-  setCurrentBargain({
-    name: '',
-    bargain_email: '',
-    phone: '',
-    address: '',
-    purchase_commission_rate: 4,
-    purchase_commission_type: 'percentage',
-    sale_commission_rate: 3,
-    sale_commission_type: 'percentage',
-    user_name: '',
-    user_email: '',
-    password: '',
-  });
-  setOpenDialog(true);
-};
+  const handleAddClick = () => {
+    setEditMode(false);
+    const startDate = new Date().toISOString().split('T')[0];
+    setCurrentBargain({
+      name: '',
+      bargain_email: '',
+      phone: '',
+      address: '',
+      purchase_commission_rate: 4,
+      purchase_commission_type: 'percentage',
+      sale_commission_rate: 3,
+      sale_commission_type: 'percentage',
+      subscription_plan: 'monthly',
+      subscription_fee: 5000,
+      subscription_start: startDate,
+      subscription_end: calculateEndDate(startDate, 'monthly'),
+      status: 'active',
+      user_name: '',
+      user_email: '',
+      password: '',
+    });
+    setOpenDialog(true);
+  };
 
   // Open Edit Dialog
   const handleEditClick = (bargain) => {
     setEditMode(true);
     setCurrentBargain({
-      ...bargain,
-      user_password: '', // Don't show password in edit mode
+      id: bargain.id,
+      name: bargain.name || '',
+      bargain_email: bargain.bargain_email || bargain.email || '',
+      phone: bargain.phone || '',
+      address: bargain.address || '',
+      purchase_commission_rate: bargain.purchase_commission_rate || 4,
+      purchase_commission_type: bargain.purchase_commission_type || 'percentage',
+      sale_commission_rate: bargain.sale_commission_rate || 3,
+      sale_commission_type: bargain.sale_commission_type || 'percentage',
+      subscription_plan: bargain.subscription_plan || 'monthly',
+      subscription_fee: bargain.subscription_fee || 5000,
+      subscription_start: bargain.subscription_start || new Date().toISOString().split('T')[0],
+      subscription_end: bargain.subscription_end || '',
+      status: bargain.status || 'active',
+      user_name: bargain.user_name || bargain.manager_name || '',
+      user_email: bargain.user_email || bargain.email || '',
+      password: '', // Don't show password in edit mode
     });
     setOpenDialog(true);
   };
@@ -137,9 +212,17 @@ const handleAddClick = () => {
     });
   };
 
-  // Handle Form Submit
-const handleSubmit = async () => {
+  // Handle Form Submit (Create or Update)
+ const handleSubmit = async () => {
   try {
+    // Backend ke mapping ke mutabiq duration months nikalna
+    const durationMap = {
+      'monthly': 1,
+      'quarterly': 3,
+      'yearly': 12
+    };
+
+    // Mapping Frontend names to Backend names
     const payload = {
       name: currentBargain.name,
       bargain_email: currentBargain.bargain_email,
@@ -151,50 +234,88 @@ const handleSubmit = async () => {
       sale_commission_type: currentBargain.sale_commission_type,
       user_name: currentBargain.user_name,
       user_email: currentBargain.user_email,
-      password: currentBargain.password,
+      
+      // Yahan hum Backend wale names use kar rahe hain:
+      subscription_start_date: currentBargain.subscription_start,
+      subscription_duration_months: durationMap[currentBargain.subscription_plan],
+      subscription_amount: Number(currentBargain.subscription_fee),
+      status: currentBargain.status,
     };
 
-    const res = await axios.post(
-      'https://b639d00419a4.ngrok-free.app/api/bargains',
-      payload,
-      { headers: { 'Content-Type': 'application/json' } }
-    );
+    // Password sirf tab bhejein jab field khali na ho
+    if (currentBargain.password && currentBargain.password.trim() !== '') {
+      payload.password = currentBargain.password;
+    }
 
-    setBargains(prev => [...prev, res.data.data]);
-    alert('Bargain created successfully!');
+    if (editMode) {
+      const response = await bargainAPI.update(currentBargain.id, payload);
+      const updatedData = response.data.data || response.data;
+      setBargains(prev => prev.map(b => b.id === currentBargain.id ? updatedData : b));
+      showSnackbar('Bargain updated successfully!', 'success');
+    } else {
+      const response = await bargainAPI.create(payload);
+      const newData = response.data.data || response.data;
+      setBargains(prev => [newData, ...prev]);
+      showSnackbar('Bargain created successfully!', 'success');
+    }
+
     setOpenDialog(false);
-
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    alert(err.response?.data?.message || 'Failed to create bargain');
+  } catch (error) {
+    console.error('Error saving bargain:', error);
+    const errorMessage = error.response?.data?.message || 'Failed to save bargain';
+    showSnackbar(errorMessage, 'error');
   }
 };
 
-
-  // Delete Bargain
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure? This will delete all data for this bargain!')) {
-      setBargains(bargains.filter(b => b.id !== id));
+// Delete Bargain
+const handleDelete = async (id) => {
+  if (window.confirm('Are you sure? This will delete all data for this bargain!')) {
+    try {
+      await bargainAPI.delete(id);
+        setBargains(bargains.filter(b => b.id !== id));
+        showSnackbar('Bargain deleted successfully!', 'success');
+      } catch (error) {
+        console.error('Error deleting bargain:', error);
+        showSnackbar('Failed to delete bargain', 'error');
+      }
     }
   };
 
   // Toggle Status
-  const handleToggleStatus = (id) => {
-    setBargains(bargains.map(b => 
-      b.id === id 
-        ? { ...b, status: b.status === 'active' ? 'suspended' : 'active' }
-        : b
-    ));
+  const handleToggleStatus = async (id) => {
+    try {
+      const response = await bargainAPI.toggleStatus(id);
+      
+      // Update local state
+      setBargains(bargains.map(b => 
+        b.id === id ? response.data.data : b
+      ));
+      
+      showSnackbar('Status updated successfully!', 'success');
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      showSnackbar('Failed to update status', 'error');
+    }
   };
 
   // Filter bargains
-  const filteredBargains = bargains.filter(bargain => {
-    const matchesSearch = bargain.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          bargain.manager_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          bargain.city.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || bargain.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredBargains = Array.isArray(bargains) 
+    ? bargains.filter(bargain => {
+        if (!bargain) return false;
+        
+        const search = searchTerm.toLowerCase();
+        const name = (bargain.name || '').toLowerCase();
+        const manager = (bargain.user_name || bargain.manager_name || '').toLowerCase();
+        const address = (bargain.address || '').toLowerCase();
+
+        const matchesSearch = name.includes(search) || 
+                              manager.includes(search) || 
+                              address.includes(search);
+        const matchesStatus = filterStatus === 'all' || bargain.status === filterStatus;
+        
+        return matchesSearch && matchesStatus;
+      }) 
+    : [];
 
   // Get status config
   const getStatusConfig = (status) => {
@@ -209,11 +330,34 @@ const handleSubmit = async () => {
   // Calculate stats
   const totalBargains = bargains.length;
   const activeBargains = bargains.filter(b => b.status === 'active').length;
-  const totalRevenue = bargains.reduce((sum, b) => sum + b.commission_earned, 0);
-  const monthlySubscription = bargains.filter(b => b.status === 'active').length * 5000;
+  const totalRevenue = bargains.reduce((sum, b) => sum + (b.commission_earned || 0), 0);
+  const monthlySubscription = activeBargains * 5000;
+
+  // Loading state
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center items-center h-screen">
+          <CircularProgress />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
       {/* Page Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -295,7 +439,7 @@ const handleSubmit = async () => {
       <div className="bg-white rounded-lg shadow-md p-4 mb-6">
         <div className="flex gap-4 flex-wrap">
           <TextField
-            placeholder="Search by name, manager, or city..."
+            placeholder="Search by name, manager, or address..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             variant="outlined"
@@ -340,7 +484,7 @@ const handleSubmit = async () => {
                     </div>
                     <div>
                       <h3 className="font-bold text-lg text-gray-800">{bargain.name}</h3>
-                      <p className="text-sm text-gray-500">{bargain.city}</p>
+                      <p className="text-sm text-gray-500">{bargain.address}</p>
                     </div>
                   </div>
                   <Chip 
@@ -355,7 +499,7 @@ const handleSubmit = async () => {
                 <div className="space-y-2 mb-4 pb-4 border-b">
                   <div className="flex items-center gap-2 text-sm">
                     <Person className="text-gray-400" fontSize="small" />
-                    <span className="text-gray-700">{bargain.manager_name}</span>
+                    <span className="text-gray-700">{bargain.user_name || bargain.manager_name || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Phone className="text-gray-400" fontSize="small" />
@@ -363,57 +507,30 @@ const handleSubmit = async () => {
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Email className="text-gray-400" fontSize="small" />
-                    <span className="text-gray-700">{bargain.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <LocationOn className="text-gray-400" fontSize="small" />
-                    <span className="text-gray-700">{bargain.address}</span>
+                    <span className="text-gray-700">{bargain.bargain_email || bargain.email}</span>
                   </div>
                 </div>
 
-                {/* Stats */}
+                {/* Commission Info */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-blue-50 p-2 rounded">
-                    <div className="flex items-center gap-1">
-                      <DirectionsCar className="text-blue-600" fontSize="small" />
-                      <span className="text-xs text-blue-600">Vehicles</span>
-                    </div>
-                    <p className="text-lg font-bold text-blue-700">{bargain.total_vehicles}</p>
-                  </div>
-                  <div className="bg-green-50 p-2 rounded">
-                    <div className="flex items-center gap-1">
-                      <ShoppingCart className="text-green-600" fontSize="small" />
-                      <span className="text-xs text-green-600">Purchases</span>
-                    </div>
-                    <p className="text-lg font-bold text-green-700">{bargain.total_purchases}</p>
-                  </div>
-                  <div className="bg-purple-50 p-2 rounded">
-                    <div className="flex items-center gap-1">
-                      <Sell className="text-purple-600" fontSize="small" />
-                      <span className="text-xs text-purple-600">Sales</span>
-                    </div>
-                    <p className="text-lg font-bold text-purple-700">{bargain.total_sales}</p>
-                  </div>
-                  <div className="bg-orange-50 p-2 rounded">
-                    <div className="flex items-center gap-1">
-                      <AttachMoney className="text-orange-600" fontSize="small" />
-                      <span className="text-xs text-orange-600">Commission</span>
-                    </div>
-                    <p className="text-sm font-bold text-orange-700">
-                      {(bargain.commission_earned / 1000).toFixed(0)}K
+                    <p className="text-xs text-blue-600">Purchase Rate</p>
+                    <p className="text-sm font-bold text-blue-700">
+                      {bargain.purchase_commission_type === 'percentage' 
+                        ? `${bargain.purchase_commission_rate}%`
+                        : `PKR ${bargain.purchase_commission_rate}`
+                      }
                     </p>
                   </div>
-                </div>
-
-                {/* Subscription Info */}
-                <div className="bg-gray-50 p-3 rounded mb-4">
-                  <p className="text-xs text-gray-600 mb-1">Subscription</p>
-                  <p className="font-semibold text-gray-800">
-                    PKR {bargain.subscription_fee.toLocaleString()} / {bargain.subscription_plan}
-                  </p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Expires: {new Date(bargain.subscription_end).toLocaleDateString()}
-                  </p>
+                  <div className="bg-green-50 p-2 rounded">
+                    <p className="text-xs text-green-600">Sale Rate</p>
+                    <p className="text-sm font-bold text-green-700">
+                      {bargain.sale_commission_type === 'percentage' 
+                        ? `${bargain.sale_commission_rate}%`
+                        : `PKR ${bargain.sale_commission_rate}`
+                      }
+                    </p>
+                  </div>
                 </div>
 
                 {/* Actions */}
@@ -498,7 +615,7 @@ const handleSubmit = async () => {
             <Grid item xs={12} md={6}>
               <TextField
                 label="Phone"
-                type="phone"
+                type="tel"
                 value={currentBargain.phone}
                 onChange={(e) => setCurrentBargain({...currentBargain, phone: e.target.value})}
                 required
@@ -514,9 +631,8 @@ const handleSubmit = async () => {
                 fullWidth
               />
             </Grid>
-    
 
-          {/* Subscription Section */}
+            {/* Commission Section */}
             <Grid item xs={12} className="mt-4">
               <div className="flex items-center gap-2 mb-2">
                 <AttachMoney className="text-purple-600" />
@@ -546,8 +662,7 @@ const handleSubmit = async () => {
                 onChange={(e) => setCurrentBargain({...currentBargain, purchase_commission_rate: e.target.value})}
                 required
                 fullWidth
-              />  
-               
+              />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -571,10 +686,68 @@ const handleSubmit = async () => {
                 onChange={(e) => setCurrentBargain({...currentBargain, sale_commission_rate: e.target.value})}
                 required
                 fullWidth
-              />  
-               
+              />
             </Grid>
-           
+
+            {/* Subscription Section */}
+            <Grid item xs={12} className="mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AttachMoney className="text-purple-600" />
+                <h3 className="font-semibold text-gray-800">Subscription Details</h3>
+              </div>
+              <Divider />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Subscription Plan</InputLabel>
+                <Select
+                  value={currentBargain.subscription_plan}
+                  label="Subscription Plan"
+                  onChange={(e) => handlePlanChange(e.target.value)}
+                >
+                  <MenuItem value="monthly">Monthly - PKR 5,000</MenuItem>
+                  <MenuItem value="quarterly">Quarterly - PKR 13,500</MenuItem>
+                  <MenuItem value="yearly">Yearly - PKR 50,000</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Start Date"
+                type="date"
+                value={currentBargain.subscription_start}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                required
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="End Date"
+                type="date"
+                value={currentBargain.subscription_end}
+                disabled
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={currentBargain.status}
+                  label="Status"
+                  onChange={(e) => setCurrentBargain({...currentBargain, status: e.target.value})}
+                >
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="suspended">Suspended</MenuItem>
+                  <MenuItem value="expired">Expired</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
             {/* User Account Section */}
             <Grid item xs={12} className="mt-4">
               <div className="flex items-center gap-2 mb-2">
@@ -585,7 +758,7 @@ const handleSubmit = async () => {
               <Alert severity="info" className="mt-2">
                 {editMode 
                   ? "Leave password empty to keep the current password unchanged."
-                  : "This account will be created for the manager to access the system. Manager will receive login credentials via email."
+                  : "This account will be created for the manager to access the system."
                 }
               </Alert>
             </Grid>
@@ -604,7 +777,6 @@ const handleSubmit = async () => {
                     </InputAdornment>
                   ),
                 }}
-                helperText="This name will be used for login identification"
               />
             </Grid>
 
@@ -623,7 +795,6 @@ const handleSubmit = async () => {
                     </InputAdornment>
                   ),
                 }}
-                helperText="Manager will use this email to login"
               />
             </Grid>
 
@@ -631,13 +802,13 @@ const handleSubmit = async () => {
               <TextField
                 label={editMode ? "New Password (Optional)" : "Set Password"}
                 type="password"
-               value={currentBargain.password}
-               onChange={(e) => setCurrentBargain({...currentBargain, password: e.target.value})}
-               required={!editMode}
-               fullWidth
-               InputProps={{
-                 startAdornment: (
-                   <InputAdornment position="start">
+                value={currentBargain.password}
+                onChange={(e) => setCurrentBargain({...currentBargain, password: e.target.value})}
+                required={!editMode}
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
                       <Lock />
                     </InputAdornment>
                   ),
@@ -645,14 +816,6 @@ const handleSubmit = async () => {
                 helperText={editMode ? "Leave empty to keep current password" : "Minimum 8 characters"}
               />
             </Grid>
-
-            {!editMode && (
-              <Grid item xs={12}>
-                <Alert severity="success" icon={<PersonAdd />}>
-                  After creating the bargain, a welcome email with login credentials will be automatically sent to <strong>{currentBargain.user_email || 'manager email'}</strong>
-                </Alert>
-              </Grid>
-            )}
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -676,45 +839,36 @@ const handleSubmit = async () => {
               <div className="space-y-4 mt-2">
                 <div>
                   <p className="text-sm text-gray-600">Manager</p>
-                  <p className="font-semibold">{selectedBargain.manager_name}</p>
+                  <p className="font-semibold">{selectedBargain.user_name || selectedBargain.manager_name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Contact</p>
-                  <p className="font-semibold">{selectedBargain.email}</p>
+                  <p className="font-semibold">{selectedBargain.bargain_email || selectedBargain.email}</p>
                   <p className="font-semibold">{selectedBargain.phone}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Address</p>
-                  <p className="font-semibold">{selectedBargain.address}, {selectedBargain.city}</p>
+                  <p className="font-semibold">{selectedBargain.address}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Subscription</p>
-                  <p className="font-semibold">
-                    PKR {selectedBargain.subscription_fee.toLocaleString()} / {selectedBargain.subscription_plan}
-                  </p>
-                  <p className="text-sm">
-                    {new Date(selectedBargain.subscription_start).toLocaleDateString()} - {new Date(selectedBargain.subscription_end).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Performance</p>
+                  <p className="text-sm text-gray-600 mb-2">Commission Rates</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-blue-50 p-3 rounded">
-                      <p className="text-xs text-blue-600">Vehicles</p>
-                      <p className="text-xl font-bold text-blue-700">{selectedBargain.total_vehicles}</p>
+                      <p className="text-xs text-blue-600">Purchase</p>
+                      <p className="text-lg font-bold text-blue-700">
+                        {selectedBargain.purchase_commission_type === 'percentage' 
+                          ? `${selectedBargain.purchase_commission_rate}%`
+                          : `PKR ${selectedBargain.purchase_commission_rate}`
+                        }
+                      </p>
                     </div>
                     <div className="bg-green-50 p-3 rounded">
-                      <p className="text-xs text-green-600">Purchases</p>
-                      <p className="text-xl font-bold text-green-700">{selectedBargain.total_purchases}</p>
-                    </div>
-                    <div className="bg-purple-50 p-3 rounded">
-                      <p className="text-xs text-purple-600">Sales</p>
-                      <p className="text-xl font-bold text-purple-700">{selectedBargain.total_sales}</p>
-                    </div>
-                    <div className="bg-orange-50 p-3 rounded">
-                      <p className="text-xs text-orange-600">Commission</p>
-                      <p className="text-lg font-bold text-orange-700">
-                        PKR {(selectedBargain.commission_earned / 1000).toFixed(0)}K
+                      <p className="text-xs text-green-600">Sale</p>
+                      <p className="text-lg font-bold text-green-700">
+                        {selectedBargain.sale_commission_type === 'percentage' 
+                          ? `${selectedBargain.sale_commission_rate}%`
+                          : `PKR ${selectedBargain.sale_commission_rate}`
+                        }
                       </p>
                     </div>
                   </div>

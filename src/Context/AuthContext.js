@@ -1,74 +1,123 @@
-import { createContext, useContext, useState  } from "react";
+import { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
-const DUMMY_USER = {
-    admin: {
-        id: 1,
-        name: "Super Admin",
-        email: "admin@erp.com",
-        role: "super_admin",
-        Showroom_Id: null,
-    },
-    manager: {
-        id: 2,
-        name: "Showroom Manager",
-        email: "manager@erp.com",
-        role: "manager",
-        Showroom_Id: 1,
-    }
-};
+const API_BASE_URL = 'https://d9045ab15ede.ngrok-free.app/api';
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    // login function with dummy data
-    const login = (email, password) => {
-        if (email === "admin@erp.com" && password === "admin@123") {
-            setUser(DUMMY_USER.admin);
-            localStorage.setItem("user", JSON.stringify(DUMMY_USER.admin));
-            return {success: true};
+  // Check if user is logged in on mount
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    const savedUser = localStorage.getItem('user');
+    
+    if (token && savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+    setLoading(false);
+  }, []);
 
-        } else if (email === "manager@bargain.com" && password === "Manager@123") {
-            setUser(DUMMY_USER.manager);
-            localStorage.setItem("user", JSON.stringify(DUMMY_USER.manager));
-            return {success: true}; 
+  // Login function with API
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/login`, {
+        email,
+        password,
+      });
 
-        } else {
-            console.log("Invalid credentials");
-            return {success: false, message: "Invalid credentials"};
-        }
-    };
+      const { user, token, token_type } = response.data;
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem("user");
-    };
+      // Extract role from roles array
+      const userRole = user.roles && user.roles.length > 0 
+        ? user.roles[0].name 
+        : null;
 
-    const isSuperAdmin = () => {
-        return user && user.role === "super_admin";
-    };
-    const isManager = () => {
-        return user && user.role === "manager";
-    };
+      // Prepare user data
+      const userData = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: userRole, // 'super_admin' or 'bargain_manager'
+        bargain_id: user.bargain_id,
+        bargain_name: user.bargain?.name || null,
+        is_active: user.is_active,
+      };
 
-    return (
-        <AuthContext.Provider value={{ 
-        user,
-        login,
-        logout,
-        isSuperAdmin,
-        isManager }}>
-            {children}
-        </AuthContext.Provider>
-    );
+      // Save to state
+      setUser(userData);
+
+      // Save to localStorage
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('token_type', token_type);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      return { success: true, user: userData };
+    } catch (error) {
+      console.error('Login error:', error);
+      const message = error.response?.data?.message || 'Invalid email or password';
+      return { success: false, message };
+    }
+  };
+
+  // Logout function
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      
+      // Call logout API (optional)
+      if (token) {
+        await axios.post(
+          `${API_BASE_URL}/logout`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear everything
+      setUser(null);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('token_type');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+  };
+
+  // Helper functions
+  const isSuperAdmin = () => user?.role === 'super_admin';
+  const isManager = () => user?.role === 'bargain_manager';
+  const getBargainId = () => user?.bargain_id;
+  const getToken = () => localStorage.getItem('auth_token');
+
+  return (
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout,
+      loading,
+      isSuperAdmin,
+      isManager,
+      getBargainId,
+      getToken,
+    }}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 };
 
-    export const useAuth = () => {
-        const context = useContext(AuthContext);
-        if (!context) {
-            throw new Error("useAuth must be used within an AuthProvider");
-        }
-        return context; 
-
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
 };

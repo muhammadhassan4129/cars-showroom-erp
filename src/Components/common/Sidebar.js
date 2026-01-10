@@ -24,7 +24,7 @@ const Sidebar = () => {
       title: 'Dashboard',
       icon: <DashboardIcon />,
       path: '/dashboard',
-      roles: ['super_admin', 'manager']
+      roles: ['super_admin', 'bargain_manager']
     },
     
     // Super Admin Only
@@ -52,31 +52,31 @@ const Sidebar = () => {
       title: 'Customers',
       icon: <People />,
       path: '/customers',
-      roles: ['manager']
+      roles: ['bargain_manager']
     },
     {
       title: 'Vehicles',
       icon: <DirectionsCar />,
       path: '/vehicles',
-      roles: ['manager']
+      roles: ['bargain_manager']
     },
     {
       title: 'Purchases',
       icon: <ShoppingCart />,
       path: '/purchases',
-      roles: ['manager']
+      roles: ['bargain_manager']
     },
     {
       title: 'Sales',
       icon: <Sell />,
       path: '/sales',
-      roles: ['manager']
+      roles: ['bargain_manager']
     },
     {
       title: 'Installments',
       icon: <Payment />,
       path: '/installments',
-      roles: ['manager']
+      roles: ['bargain_manager']
     },
     
     // Common Reports
