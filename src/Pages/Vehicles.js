@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../Components/layout/DashboardLayout';
+import { vehicleAPI } from '../Services/api';
 import {
   Button,
   Dialog,
@@ -15,6 +16,8 @@ import {
   Chip,
   InputAdornment,
   Grid,
+    Snackbar,
+  CircularProgress
 } from '@mui/material';
 import {
   Add,
@@ -27,41 +30,90 @@ import {
   Cancel,
   Pending,
 } from '@mui/icons-material';
-import { dummyVehicles } from '../Utils/dummyData';
 
 const Vehicles = () => {
-  const [vehicles, setVehicles] = useState(dummyVehicles);
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [currentVehicle, setCurrentVehicle] = useState({
-    name: '',
+    make: '',
     model: '',
-    registration: '',
-    chassis: '',
-    engine: '',
+    year: '',
+    registration_number: '',
+    chassis_number: '',
+    engine_number: '',
     color: '',
-    condition: 'excellent',
-    purchase_price: '',
-    sale_price: '',
+    mileage: '',
     status: 'available',
+
+    // name: '',
+    // model: '',
+    // registration: '',
+    // chassis: '',
+    // engine: '',
+    // color: '',
+    // condition: 'excellent',
+    // purchase_price: '',
+    // sale_price: '',
+    // status: 'available',
   });
+
+  // Fetch vehicles from API
+
+    useEffect(() => {
+      fetchVehicles();
+    }, []);
+  
+
+    const fetchVehicles = async () => {
+      try {
+        setLoading(true);
+        const response = await vehicleAPI.getAll();
+        // Laravel pagination and resource handling
+        const resData = response.data?.data?.data || response.data?.data || response.data;
+        console.log('Fetched vehicles:', resData);
+        setVehicles(Array.isArray(resData) ? resData : []);
+      } catch (error) {
+        console.error('Error fetching vehicles:', error);
+        showSnackbar('Failed to load vehicles', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+      const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
 
   // Open Add Dialog
   const handleAddClick = () => {
     setEditMode(false);
     setCurrentVehicle({
-      name: '',
-      model: '',
-      registration: '',
-      chassis: '',
-      engine: '',
-      color: '',
-      condition: 'excellent',
-      purchase_price: '',
-      sale_price: '',
-      status: 'available',
+    make: '',
+    model: '',
+    year: '',
+    registration_number: '',
+    chassis_number: '',
+    engine_number: '',
+    color: '',
+    mileage: '',
+    status: 'available',
+
+      // name: '',
+      // model: '',
+      // registration: '',
+      // chassis: '',
+      // engine: '',
+      // color: '',
+      // condition: 'excellent',
+      // purchase_price: '',
+      // sale_price: '',
+      // status: 'available',
     });
     setOpenDialog(true);
   };
@@ -74,37 +126,77 @@ const Vehicles = () => {
   };
 
   // Handle Form Submit
-  const handleSubmit = () => {
-    if (editMode) {
-      setVehicles(vehicles.map(v => 
-        v.id === currentVehicle.id ? currentVehicle : v
-      ));
-    } else {
-      const newVehicle = {
-        ...currentVehicle,
-        id: vehicles.length + 1,
-        created_at: new Date().toISOString().split('T')[0],
-      };
-      setVehicles([...vehicles, newVehicle]);
+  const handleSubmit = async () => {
+
+    try {
+
+      const payload = {
+        make: currentVehicle.make,
+        model: currentVehicle.model,
+        year: currentVehicle.year,
+        registration_number: currentVehicle.registration_number,
+        chassis_number: currentVehicle.chassis_number,
+        engine_number: currentVehicle.engine_number,
+        color: currentVehicle.color,
+        mileage: currentVehicle.mileage,
+        status: currentVehicle.status,
+      }
+
+        if (editMode) {
+          const response = await vehicleAPI.update(currentVehicle.id, payload);
+          const updatedVehicle = response.data.data || response.data;
+           setVehicles(prev => prev.map(c => c.id === currentVehicle.id ? updatedVehicle : c));
+          showSnackbar('Vehicle updated successfully');
+        } else {
+          const response = await vehicleAPI.create(payload);
+          const newVehicle = response.data.data || response.data;
+          setVehicles(prev => [newVehicle, ...prev]);
+          showSnackbar('Vehicle added successfully');
+        }
+      // Update existing vehicle
+      setOpenDialog(false);
+
+    } catch (error) {
+      console.error('Error saving vehicle:', error);
+      showSnackbar(error.response?.data?.message || 'Failed to save vehicle', 'error');
     }
-    setOpenDialog(false);
+
   };
 
   // Delete Vehicle
-  const handleDelete = (id) => {
+// Delete Vehicle
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this vehicle?')) {
-      setVehicles(vehicles.filter(v => v.id !== id));
+      try {
+        await vehicleAPI.delete(id); // API call
+        setVehicles(prev => prev.filter(v => v.id !== id));
+        showSnackbar('Vehicle deleted successfully');
+      } catch (error) {
+        console.error('Error deleting vehicle:', error);
+        showSnackbar('Failed to delete vehicle', 'error');
+      }
     }
   };
-
   // Filter vehicles
-  const filteredVehicles = vehicles.filter(vehicle => {
-    const matchesSearch = vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          vehicle.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          vehicle.model.includes(searchTerm);
+// Filter vehicles
+  const filteredVehicles = Array.isArray(vehicles) ? vehicles.filter(vehicle => {
+    if (!vehicle) return false;
+
+    const search = searchTerm.toLowerCase();
+    
+    // Naye fields ke mutabiq safe check
+    const make = (vehicle.make || '').toLowerCase();
+    const model = (vehicle.model || '').toString().toLowerCase(); // Model saal bhi ho sakta hai
+    const regNo = (vehicle.registration_number || '').toLowerCase();
+
+    const matchesSearch = make.includes(search) || 
+                          model.includes(search) || 
+                          regNo.includes(search);
+
     const matchesStatus = filterStatus === 'all' || vehicle.status === filterStatus;
+    
     return matchesSearch && matchesStatus;
-  });
+  }) : [];
 
   // Get status badge
   const getStatusBadge = (status) => {
@@ -117,14 +209,22 @@ const Vehicles = () => {
   };
 
   // Get condition badge
-  const getConditionColor = (condition) => {
-    const colors = {
-      excellent: 'success',
-      good: 'primary',
-      fair: 'warning',
-    };
-    return colors[condition] || 'default';
-  };
+  // const getConditionColor = (condition) => {
+  //   const colors = {
+  //     excellent: 'success',
+  //     good: 'primary',
+  //     fair: 'warning',
+  //   };
+  //   return colors[condition] || 'default';
+  // };
+
+    if (loading) {
+      return (
+        <DashboardLayout>
+          <div className="flex justify-center items-center h-64"><CircularProgress /></div>
+        </DashboardLayout>
+      );
+    }
 
   return (
     <DashboardLayout>
@@ -237,8 +337,8 @@ const Vehicles = () => {
               <div className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800">{vehicle.name}</h3>
-                    <p className="text-sm text-gray-500">Model: {vehicle.model}</p>
+                    <h3 className="text-lg font-bold text-gray-800">{vehicle.model}</h3>
+                    <p className="text-sm text-gray-500">Company: {vehicle.make}</p>
                   </div>
                   <Chip 
                     label={statusConfig.label}
@@ -251,24 +351,28 @@ const Vehicles = () => {
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Registration:</span>
-                    <span className="font-medium text-gray-800">{vehicle.registration}</span>
+                    <span className="font-medium text-gray-800">{vehicle.registration_number}</span>
+                  </div>
+                   <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Chassis:</span>
+                    <span className="font-medium text-gray-800">{vehicle.chassis_number}</span>
+                  </div>
+                   <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Engine:</span>
+                    <span className="font-medium text-gray-800">{vehicle.engine_number}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Color:</span>
                     <span className="font-medium text-gray-800">{vehicle.color}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Condition:</span>
-                    <Chip 
-                      label={vehicle.condition.toUpperCase()}
-                      color={getConditionColor(vehicle.condition)}
-                      size="small"
-                    />
-                  </div>
+                   <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Mileage:</span>
+                    <span className="font-medium text-gray-800">{vehicle.mileage}</span>
+                  </div>              
                 </div>
 
                 {/* Pricing */}
-                <div className="border-t pt-3 mb-3">
+                {/* <div className="border-t pt-3 mb-3">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-gray-600">Purchase Price:</span>
                     <span className="font-semibold text-green-600">
@@ -281,7 +385,7 @@ const Vehicles = () => {
                       PKR {vehicle.sale_price?.toLocaleString()}
                     </span>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Actions */}
                 <div className="flex gap-2">
@@ -326,17 +430,17 @@ const Vehicles = () => {
           <Grid container spacing={2} className="mt-2">
             <Grid item xs={12} md={6}>
               <TextField
-                label="Vehicle Name"
-                placeholder="e.g., Honda Civic"
-                value={currentVehicle.name}
-                onChange={(e) => setCurrentVehicle({...currentVehicle, name: e.target.value})}
+                label="Company/Make"
+                placeholder="toyota/honda"
+                value={currentVehicle.make}
+                onChange={(e) => setCurrentVehicle({...currentVehicle, make: e.target.value})}
                 required
                 fullWidth
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Model/Year"
+                label="Model"
                 placeholder="e.g., 2020"
                 value={currentVehicle.model}
                 onChange={(e) => setCurrentVehicle({...currentVehicle, model: e.target.value})}
@@ -346,10 +450,19 @@ const Vehicles = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
+                label="Year"
+                placeholder="e.g., 2020"
+                value={currentVehicle.year}
+                onChange={(e) => setCurrentVehicle({...currentVehicle, year: e.target.value})}
+                required
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
                 label="Registration Number"
-                placeholder="e.g., ABC-123"
-                value={currentVehicle.registration}
-                onChange={(e) => setCurrentVehicle({...currentVehicle, registration: e.target.value})}
+                value={currentVehicle.registration_number}
+                onChange={(e) => setCurrentVehicle({...currentVehicle, registration_number: e.target.value})}
                 required
                 fullWidth
               />
@@ -357,8 +470,8 @@ const Vehicles = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 label="Chassis Number"
-                value={currentVehicle.chassis}
-                onChange={(e) => setCurrentVehicle({...currentVehicle, chassis: e.target.value})}
+                value={currentVehicle.chassis_number}
+                onChange={(e) => setCurrentVehicle({...currentVehicle, chassis_number: e.target.value})}
                 required
                 fullWidth
               />
@@ -366,13 +479,13 @@ const Vehicles = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 label="Engine Number"
-                value={currentVehicle.engine}
-                onChange={(e) => setCurrentVehicle({...currentVehicle, engine: e.target.value})}
+                value={currentVehicle.engine_number}
+                onChange={(e) => setCurrentVehicle({...currentVehicle, engine_number: e.target.value})}
                 required
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+             <Grid item xs={12} md={6}>
               <TextField
                 label="Color"
                 value={currentVehicle.color}
@@ -381,7 +494,16 @@ const Vehicles = () => {
                 fullWidth
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6}>
+              <TextField
+                label="Mileage"
+                value={currentVehicle.mileage}
+                onChange={(e) => setCurrentVehicle({...currentVehicle, mileage: e.target.value})}
+                required
+                fullWidth
+              />
+            </Grid>
+            {/* <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Condition</InputLabel>
                 <Select
@@ -394,7 +516,7 @@ const Vehicles = () => {
                   <MenuItem value="fair">Fair</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
+            </Grid> */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
@@ -409,7 +531,7 @@ const Vehicles = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            {/* <Grid item xs={12} md={6}>
               <TextField
                 label="Purchase Price (PKR)"
                 type="number"
@@ -432,7 +554,7 @@ const Vehicles = () => {
                   startAdornment: <InputAdornment position="start">PKR</InputAdornment>,
                 }}
               />
-            </Grid>
+            </Grid> */}
           </Grid>
         </DialogContent>
         <DialogActions>

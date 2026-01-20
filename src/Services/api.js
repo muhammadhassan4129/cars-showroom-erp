@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL
-const API_BASE_URL = 'https://d9045ab15ede.ngrok-free.app/api';
+const API_BASE_URL = 'https://1c9882698dfc.ngrok-free.app/api';
 
 // Create axios instance with default config
 const api = axios.create({
