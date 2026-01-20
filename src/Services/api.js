@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL
-const API_BASE_URL = 'https://1c9882698dfc.ngrok-free.app/api';
+const API_BASE_URL = 'https://7938d54a7b90.ngrok-free.app/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -80,6 +80,16 @@ export const vehicleAPI = {
   create: (data) => api.post('/vehicles', data),
   update: (id, data) => api.put(`/vehicles/${id}`, data),
   delete: (id) => api.delete(`/vehicles/${id}`),
+};
+
+// ============================================
+// INVOICE APIs
+// ============================================
+export const invoiceAPI = {
+  getAll: () => api.get('/invoices'),
+  create: (data) => api.post('/invoices', data),
+  update: (id, data) => api.put(`/invoices/${id}`, data),
+  delete: (id) => api.delete(`/invoices/${id}`),
 };
 
 // ============================================

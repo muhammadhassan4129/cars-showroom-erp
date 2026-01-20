@@ -16,6 +16,7 @@ import Commission from './Pages/Commission';
 import Subscriptions from './Pages/Subscriptions';
 import Profile from './Pages/Profile';
 import Settings from './Pages/Settings';
+import Invoices from './Pages/Invoices';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -62,6 +63,7 @@ function App() {
       <Route path="/purchases" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
       <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
       <Route path="/installments" element={<ProtectedRoute><Installments /></ProtectedRoute>} />
+      <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
       <Route path="/bargains" element={<ProtectedRoute><Bargains /></ProtectedRoute>} />
       <Route path="/commission" element={<ProtectedRoute><Commission /></ProtectedRoute>} />

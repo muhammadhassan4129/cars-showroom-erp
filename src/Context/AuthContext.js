@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const API_BASE_URL = 'https://1c9882698dfc.ngrok-free.app/api';
+const API_BASE_URL = 'https://7938d54a7b90.ngrok-free.app/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
