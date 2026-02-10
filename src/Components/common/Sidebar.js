@@ -67,7 +67,14 @@ const Sidebar = () => {
       path: '/invoices',
       roles: ['bargain_manager']
     },
- 
+
+    {
+      title: 'Transactions',
+      icon: <Payment />,
+      path: '/transactions',
+      roles: ['bargain_manager']
+    },
+
     // Common Reports
     {
       title: 'Reports',

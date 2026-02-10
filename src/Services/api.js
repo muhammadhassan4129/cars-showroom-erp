@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL
-const API_BASE_URL = 'https://7938d54a7b90.ngrok-free.app/api';
+const API_BASE_URL = 'https://e78e-2407-d000-506-4f9-2423-f8b-5fa5-bd03.ngrok-free.app/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -91,6 +91,18 @@ export const invoiceAPI = {
   update: (id, data) => api.put(`/invoices/${id}`, data),
   delete: (id) => api.delete(`/invoices/${id}`),
 };
+
+// ============================================
+
+export const transactionAPI = {
+  getAll: () => api.get('/transactions'),
+  // File upload ke liye header override karna zaroori hai:
+  create: (formData) => api.post('/transactions', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  update: (id, data) => api.put(`/transactions/${id}`, data),
+  delete: (id) => api.delete(`/transactions/${id}`),
+}
 
 // ============================================
 // PURCHASE APIs

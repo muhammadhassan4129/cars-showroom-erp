@@ -62,10 +62,8 @@ const Bargains = () => {
     bargain_email: '',
     phone: '',
     address: '',
-    purchase_commission_rate: 4,
-    purchase_commission_type: 'percentage',
-    sale_commission_rate: 3,
-    sale_commission_type: 'percentage',
+    commission_type: 'percentage',
+    commission_rate: 0,
     subscription_plan: 'monthly',
     subscription_fee: 5000,
     subscription_start: new Date().toISOString().split('T')[0],
@@ -95,39 +93,25 @@ const Bargains = () => {
   }, []);
 
   // Fetch bargains from API
-  const fetchBargains = async () => {
-    try {
-      setLoading(true);
-      const response = await bargainAPI.getAll();
-      
-      console.log("Full Axios Response:", response);
+ const fetchBargains = async () => {
+  try {
+    // Agar pehle se data hai (refresh case), toh loading screen na dikhayein
+    if (bargains.length === 0) setLoading(true);
+    
+    const response = await bargainAPI.getAll();
+    let finalData = [];
 
-      let finalData = [];
+    if (response.data?.data?.data) finalData = response.data.data.data;
+    else if (response.data?.data) finalData = response.data.data;
+    else if (Array.isArray(response.data)) finalData = response.data;
 
-      // Laravel Pagination: response.data.data.data
-      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
-        finalData = response.data.data.data;
-      } 
-      // Laravel Resource: response.data.data
-      else if (response.data?.data && Array.isArray(response.data.data)) {
-        finalData = response.data.data;
-      }
-      // Direct Array: response.data
-      else if (Array.isArray(response.data)) {
-        finalData = response.data;
-      }
-
-      console.log("Extracted Array for State:", finalData);
-      setBargains(finalData);
-
-    } catch (error) {
-      console.error('Error fetching bargains:', error);
-      setBargains([]); 
-      showSnackbar('Failed to load bargains', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setBargains(finalData);
+  } catch (error) {
+    showSnackbar('Failed to load bargains', 'error');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Show snackbar notification
   const showSnackbar = (message, severity = 'success') => {
@@ -168,10 +152,8 @@ const Bargains = () => {
       bargain_email: bargain.bargain_email || bargain.email || '',
       phone: bargain.phone || '',
       address: bargain.address || '',
-      purchase_commission_rate: bargain.purchase_commission_rate || 4,
-      purchase_commission_type: bargain.purchase_commission_type || 'percentage',
-      sale_commission_rate: bargain.sale_commission_rate || 3,
-      sale_commission_type: bargain.sale_commission_type || 'percentage',
+      commission_rate: bargain.commission_rate || 0,
+      commission_type: bargain.commission_type || 'percentage',
       subscription_plan: bargain.subscription_plan || 'monthly',
       subscription_fee: bargain.subscription_fee || 5000,
       subscription_start: bargain.subscription_start || new Date().toISOString().split('T')[0],
@@ -213,53 +195,50 @@ const Bargains = () => {
   };
 
   // Handle Form Submit (Create or Update)
- const handleSubmit = async () => {
+const handleSubmit = async () => {
   try {
-    // Backend ke mapping ke mutabiq duration months nikalna
     const durationMap = {
       'monthly': 1,
       'quarterly': 3,
       'yearly': 12
     };
 
-    // Mapping Frontend names to Backend names
     const payload = {
       name: currentBargain.name,
       bargain_email: currentBargain.bargain_email,
       phone: currentBargain.phone,
       address: currentBargain.address,
-      purchase_commission_rate: Number(currentBargain.purchase_commission_rate),
-      purchase_commission_type: currentBargain.purchase_commission_type,
-      sale_commission_rate: Number(currentBargain.sale_commission_rate),
-      sale_commission_type: currentBargain.sale_commission_type,
+      commission_type: currentBargain.commission_type,
+      commission_rate: Number(currentBargain.commission_rate),
       user_name: currentBargain.user_name,
       user_email: currentBargain.user_email,
-      
-      // Yahan hum Backend wale names use kar rahe hain:
       subscription_start_date: currentBargain.subscription_start,
       subscription_duration_months: durationMap[currentBargain.subscription_plan],
       subscription_amount: Number(currentBargain.subscription_fee),
       status: currentBargain.status,
     };
 
-    // Password sirf tab bhejein jab field khali na ho
     if (currentBargain.password && currentBargain.password.trim() !== '') {
       payload.password = currentBargain.password;
     }
 
     if (editMode) {
-      const response = await bargainAPI.update(currentBargain.id, payload);
-      const updatedData = response.data.data || response.data;
-      setBargains(prev => prev.map(b => b.id === currentBargain.id ? updatedData : b));
+      // API call for update
+      await bargainAPI.update(currentBargain.id, payload);
       showSnackbar('Bargain updated successfully!', 'success');
     } else {
-      const response = await bargainAPI.create(payload);
-      const newData = response.data.data || response.data;
-      setBargains(prev => [newData, ...prev]);
+      // API call for create
+      await bargainAPI.create(payload);
       showSnackbar('Bargain created successfully!', 'success');
     }
 
+    // 1. Dialog band karein
     setOpenDialog(false);
+
+    // 2. Refresh data from server (Yeh relationships ko sahi load karega)
+    // Isse 'undefined' wala masla foran hal ho jayega
+    await fetchBargains();
+
   } catch (error) {
     console.error('Error saving bargain:', error);
     const errorMessage = error.response?.data?.message || 'Failed to save bargain';
@@ -643,11 +622,11 @@ const handleDelete = async (id) => {
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Purchase Type</InputLabel>
+                <InputLabel>Commission Type</InputLabel>
                 <Select
-                  value={currentBargain.purchase_commission_type}
-                  label="Purchase Type"
-                  onChange={(e) => setCurrentBargain({...currentBargain, purchase_commission_type: e.target.value})}
+                  value={currentBargain.commission_type}
+                  label="Commission Type"
+                  onChange={(e) => setCurrentBargain({...currentBargain, commission_type: e.target.value})}
                 >
                   <MenuItem value="fixed">Fixed</MenuItem>
                   <MenuItem value="percentage">Percentage</MenuItem>
@@ -656,34 +635,10 @@ const handleDelete = async (id) => {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField
-                label="Purchase Commission Rate"
+                label="Commission Rate"
                 type="number"
-                value={currentBargain.purchase_commission_rate}
-                onChange={(e) => setCurrentBargain({...currentBargain, purchase_commission_rate: e.target.value})}
-                required
-                fullWidth
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sale Type</InputLabel>
-                <Select
-                  value={currentBargain.sale_commission_type}
-                  label="Sale Type"
-                  onChange={(e) => setCurrentBargain({...currentBargain, sale_commission_type: e.target.value})}
-                >
-                  <MenuItem value="fixed">Fixed</MenuItem>
-                  <MenuItem value="percentage">Percentage</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Sale Commission Rate"
-                type="number"
-                value={currentBargain.sale_commission_rate}
-                onChange={(e) => setCurrentBargain({...currentBargain, sale_commission_rate: e.target.value})}
+                value={currentBargain.commission_rate}
+                onChange={(e) => setCurrentBargain({...currentBargain, commission_rate: e.target.value})}
                 required
                 fullWidth
               />
